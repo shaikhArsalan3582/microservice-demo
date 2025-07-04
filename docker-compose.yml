@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # RabbitMQ (for async notifications)
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"       # AMQP
+      - "15672:15672"     # Management UI (user: guest, pass: guest)
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  # API Gateway (port 3000)
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - USER-SERVICE_URL=http://user-service:3001
+      - PRODUCT-SERVICE_URL=http://product-service:3002
+      - ORDER-SERVICE_URL=http://order-service:3003
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+
+  # User Service (MongoDB Atlas)
+  user-service:
+    build: ./user-service
+    ports:
+      - "3001:3001"
+    environment:
+      - DB_URL=mongodb+srv://<username>:<password>@cluster0.mongodb.net/users?retryWrites=true&w=majority
+      - NODE_ENV=development
+
+  # Product Service (MongoDB Atlas)
+  product-service:
+    build: ./product-service
+    ports:
+      - "3002:3002"
+    environment:
+      - DB_URL=mongodb+srv://admin:9191876181@abdullahcluster.sue05zr.mongodb.net/user-service?retryWrites=true&w=majority&appName=abdullahcluster
+      - NODE_ENV=development
+
+  # Order Service (Local PostgreSQL for Windows)
+  order-service:
+    build: ./order-service
+    ports:
+      - "3003:3003"
+    environment:
+      - DB_URL=postgresql://postgres:nsdb1234@localhost:5432/order-service
+      - RABBITMQ_URL=amqp://rabbitmq
+      - NODE_ENV=development
+    depends_on:
+      - rabbitmq
+
+  # Notification Service (Background consumer)
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    environment:
+      - RABBITMQ_URL=amqp://rabbitmq
+      - EMAIL_USER=test.abdullah.jatu@gmail.com
+      - EMAIL_PASS=tout sgwp tgzv kqok
+      - NODE_ENV=development
+    depends_on:
+      - rabbitmq
+
+volumes:
+  rabbitmq_data:
